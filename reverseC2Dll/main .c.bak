@@ -1,0 +1,108 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+
+typedef struct _tagMagicShift {
+	int magic;
+	int shift;
+} tagMagicShift;
+
+tagMagicShift MagicShiftList[13] = {
+	{1, 1},
+	{1, 1},
+	{1, 1},
+	{0x55555556, 0},
+	{0, 0},
+	{0x66666667, 1},
+	{0x2AAAAAAB, 0},
+	{0x92492493, 2},
+	{0, 0},
+	{0x38E38E39, 1},
+	{0x66666667, 2},
+	{0x2E8BA2E9, 1},
+	{0x2AAAAAAB, 1}
+};
+
+tagMagicShift result;
+
+tagMagicShift* __fastcall CalcMagicNumber(int divisor) {
+	if (divisor >= 3 && divisor < 13) {
+		return &MagicShiftList[divisor];
+	}
+
+	unsigned int ebx, ecx, edx, esi, edi, ebp;
+	unsigned int var_8;
+	if (divisor >= 0) {
+		edi = divisor;
+		esi = 0x7fff'ffff - 0x8000'0000 % edi;
+	}
+	else {
+		edi = ~divisor - 0xffff'ffff;
+		esi = 0x8000'0000 - 0x8000'0001 % edi;
+	}
+	var_8 = 31;
+	ebp = 0x8000'0000 / esi;
+	ebx = 0x8000'0000 - 0x8000'0000 / esi * esi;
+	ecx = 0x8000'0000 / edi;
+	edx = 0x8000'0000 - 0x8000'0000 / edi * edi;
+
+	do {
+		var_8++;
+		ebx = ebx * 2;
+		ebp = ebp * 2;
+		if (ebx >= esi) {
+			ebp++;
+			ebx = ebx - esi;
+		}
+		edx = edx * 2;
+		ecx = ecx * 2;
+		if (edx >= edi) {
+			ecx++;
+			edx = edx - edi;
+		}
+	} while (ebp < edi - edx || (ebp == edi - edx && ebx == 0));
+	
+	result.magic = ecx + 1;
+	if (divisor < 0) {
+		result.magic = -result.magic;
+	}
+
+	result.shift = var_8 - 32;
+
+	return &result;
+}
+
+int main() {
+	DWORD BaseAddress = (DWORD)LoadLibraryA("C2.DLL");
+	if (BaseAddress == 0) {
+		printf("LoadLibraryA Failed!, %d", GetLastError());
+		return -1;
+	}
+	tagMagicShift *(__fastcall * OrigFunc)(int) = (tagMagicShift *(__fastcall*)(int))(BaseAddress + 0x5EACE);
+	printf("OrigFunc: %p, ReverseFunc: %p\n", OrigFunc, CalcMagicNumber);
+	system("pause");
+	
+	long long correct = 0, total = 0;
+	for (int divisor = -1000; divisor < 1000; divisor++) {
+		if (!divisor) {
+			continue;
+		}
+		tagMagicShift *originResult = OrigFunc(divisor);
+		tagMagicShift *reverseResult = CalcMagicNumber(divisor);
+		printf("----------------------------\n");
+		printf("origin:  %d: %08x, %2d\n", divisor, originResult->magic, originResult->shift);
+		printf("reverse: %d: %08x, %2d\n", divisor, reverseResult->magic, reverseResult->shift);
+		total++;
+		if (originResult->magic == reverseResult->magic && originResult->shift == reverseResult->shift) {
+			correct++;
+		}
+		else {
+			printf("Wrong Answer!");
+			system("pause");
+			return -1;
+		}
+	}
+	printf("Correct Rate: %lld/%lld\n", correct, total);
+	system("pause");
+	return 0;
+}
